@@ -1,22 +1,42 @@
 import { UserCard } from "../components/UserCard";
 import { cleanUser } from "../libs/CleanUser";
 import axios from "axios";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
 export default function RandomUserPage() {
-  const [users, setUsers] = useState("");
+  const [users, setUsers] = useState<any[]>([]); // แก้เป็น array
   const [isLoading, setIsLoading] = useState(false);
   const [genAmount, setGenAmount] = useState(1);
 
+  // โหลดค่า genAmount จาก localStorage เมื่อเปิดหน้าเว็บ
+  useEffect(() => {
+    const savedAmount = localStorage.getItem("genAmount");
+    if (savedAmount) {
+      setGenAmount(parseInt(savedAmount));
+    }
+  }, []);
+
+  // บันทึกค่า genAmount ลง localStorage เมื่อมีการเปลี่ยนแปลง
+  useEffect(() => {
+    localStorage.setItem("genAmount", genAmount.toString());
+  }, [genAmount]);
+
   const generateBtnOnClick = async () => {
     setIsLoading(true);
-    const resp = await axios.get(
-      `https://randomuser.me/api/?results=${genAmount}`
-    );
-    setIsLoading(false);
-    const users = resp.data.results;
-    //Your code here
-    //Process result from api response with map function. Tips use function from /src/libs/CleanUser
-    //Then update state with function : setUsers(...)
+    try {
+      const resp = await axios.get(
+        `https://randomuser.me/api/?results=${genAmount}`
+      );
+      const rawUsers = resp.data.results;
+
+      // ทำความสะอาดข้อมูลด้วย cleanUser และ map
+      const cleanedUsers = rawUsers.map((user: any) => cleanUser(user));
+      setUsers(cleanedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -28,17 +48,32 @@ export default function RandomUserPage() {
           className="form-control text-center"
           style={{ maxWidth: "100px" }}
           type="number"
-          onChange={(event: any) => setGenAmount(event.target.value)}
+          onChange={(e) => setGenAmount(parseInt(e.target.value) || 1)}
           value={genAmount}
+          min="1"
+          max="100"
         />
         <button className="btn btn-dark" onClick={generateBtnOnClick}>
           Generate
         </button>
       </div>
+
       {isLoading && (
         <p className="display-6 text-center fst-italic my-4">Loading ...</p>
       )}
-      {users && !isLoading && users.map(/*code map rendering UserCard here */)}
+
+      <div className="mt-4">
+        {!isLoading &&
+          users.map((user) => (
+            <UserCard
+              key={user.email} // ใช้ email เป็น key
+              name={user.name}
+              email={user.email}
+              imgUrl={user.imgUrl}
+              address={user.address}
+            />
+          ))}
+      </div>
     </div>
   );
 }
